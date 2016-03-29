@@ -128,11 +128,15 @@ var CruncherCtrl = function($scope, $rootScope, $timeout) {
     }
 
     var crunchForType = function(type) {
-        // compute base damage
-        var damage = getBaseDamageForType(type,false);
-        // compute best overall damage
+        // true if the user has specified a custom order
         var noSorting = $scope.tdata.orderOverride.hasOwnProperty(type);
+
+        // compute base damage
+        var damage = getBaseDamageForType(type, noSorting);
+        
+        // compute best overall damage
         var overallDamage = optimizeDamage(damage,noSorting);
+        
         // apply damage sorters to base damage, recalculate the new damage and update overallDamage if necessary
         // only done if the user hasn't already specified a custom order of their own
         if (!noSorting) {
@@ -168,7 +172,7 @@ var CruncherCtrl = function($scope, $rootScope, $timeout) {
      * Returns a sorted array of objects detailing the base damage of each
      * unit in the team, sorted from weakest to strongest.
      */
-    var getBaseDamageForType = function(type) {
+    var getBaseDamageForType = function(type, noSorting) {
         var result = [ ];
         // populate array with the damage of each unit in the team
         team.forEach(function(x,n) {
@@ -193,15 +197,17 @@ var CruncherCtrl = function($scope, $rootScope, $timeout) {
                 result = applyCaptainEffectsToDamage(result,enabledEffects[i].atk,null,false);
         }
         // if the user has specified a custom order, sort by that
-        if ($scope.tdata.orderOverride.hasOwnProperty(type)) {
+        if (noSorting) {
             var order = $scope.tdata.orderOverride[type];
             result = order.map(function(x) {
                 return result.filter(function(y) {
                     return y.position == x;
                 })[0];
             });
-        } else // otherwise, sort from weakest to stongest
+        } else{
+            // otherwise, sort from weakest to stongest
             result.sort(function(x,y) { return x.base * totalMultiplier(x.multipliers) - y.base * totalMultiplier(y.multipliers); });
+        }
         // apply type overrides
         if ($scope.tdata.typeOverride[type]) {
             var override = $scope.tdata.typeOverride[type];
@@ -479,6 +485,10 @@ var CruncherCtrl = function($scope, $rootScope, $timeout) {
         if (specialsCombinations.length === 0) {
             for (var i=0;i<cptsWith.hitModifiers.length;++i)
                 result = applyCaptainEffectsToDamage(result,cptsWith.hitModifiers[i].hitAtk,hitModifiers);
+            // sort again!  this is the same sort as in function getBaseDamageForType. we have to sort this again since the current attackOrder is calculated without cptEffects.
+                result.sort(function (x, y) {
+                    return x.base * totalMultiplier(x.multipliers) - y.base * totalMultiplier(y.multipliers);
+                });
             return result;
         }
         // for each special combination
